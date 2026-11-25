@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Квиз: Базы данных</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%}
+  body{font-family:system-ui,Arial,sans-serif;background:#0e1116;color:#fff;overflow:hidden}
+
+  #game{position:relative;width:100vw;height:100vh;overflow:hidden}
+  #bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,16,.4) 0%,rgba(8,12,16,.05) 35%,rgba(8,12,16,.92) 100%)}
+
+  #board{position:absolute;left:2%;bottom:2.5%;width:min(1240px,72vw);z-index:3;
+         background:rgba(13,40,30,.94);border:4px solid #6b4f2a;border-radius:12px;
+         padding:20px 26px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
+  #head{font-size:13px;letter-spacing:2px;opacity:.7;margin-bottom:10px}
+  #qText{font-size:clamp(14px,1.55vw,19px);line-height:1.4;margin-bottom:14px;
+         word-break:break-word;hyphens:auto}
+  #opts{display:flex;flex-direction:column;gap:7px}
+  .opt{text-align:left;font-size:clamp(12.5px,1.25vw,15.5px);line-height:1.35;padding:11px 14px;
+       border-radius:9px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);
+       color:#fff;cursor:pointer;transition:.15s;font-family:inherit;word-break:break-word}
+  .opt:hover{background:rgba(255,255,255,.2)}
+  .opt.correct{background:#16a34a;border-color:#4ade80}
+  .opt.wrong{background:#b91c1c;border-color:#f87171}
+  .opt:disabled{cursor:default}
+  #next{margin-top:12px;padding:11px 28px;font-size:16px;border-radius:10px;border:0;
+        cursor:pointer;background:#4ade80;color:#062;font-family:inherit}
+  #next:disabled{opacity:.35;cursor:default}
+
+  /* ---- персонаж: одинаковое место у обоих ---- */
+  #char{position:absolute;right:0;bottom:0;z-index:6;
+        height:96%;width:min(360px,27vw);object-fit:contain;object-position:right bottom;
+        filter:drop-shadow(0 12px 24px rgba(0,0,0,.7))}
+  #char.pop{animation:pop .45s ease}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1)}}
+  #who{position:absolute;right:2%;bottom:97%;z-index:7;font-size:14px;font-weight:700;
+       letter-spacing:1px;padding:6px 14px;border-radius:20px;background:rgba(0,0,0,.55);
+       color:#4ade80;text-shadow:0 1px 3px #000}
+
+  #bubble{position:absolute;right:6%;bottom:78%;z-index:8;max-width:min(520px,40vw);
+          font-size:clamp(15px,1.8vw,20px);line-height:1.4;font-weight:700;color:#fff;
+          text-align:center;pointer-events:none;
+          text-shadow:0 0 6px #000,0 0 14px #000,0 0 26px rgba(0,0,0,.9),0 2px 4px #000;
+          opacity:0;visibility:hidden;transform:translateY(8px);
+          transition:opacity .35s,transform .35s,visibility .35s}
+  #bubble.show{opacity:1;visibility:visible;transform:translateY(0)}
+
+  #score{position:absolute;top:12px;right:16px;font-size:15px;z-index:9;
+         background:rgba(0,0,0,.55);padding:7px 14px;border-radius:20px}
+  #select{position:absolute;inset:0;display:grid;place-items:center;z-index:11;
+          background:rgba(8,12,16,.86);padding:16px;overflow:auto}
+  #select h1{text-align:center;font-size:clamp(20px,4vw,32px);margin-bottom:6px}
+  #select .sub{text-align:center;opacity:.75;font-size:14px;margin-bottom:18px}
+  .cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+  .card{width:min(340px,84vw);background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.2);
+        border-radius:14px;padding:18px;cursor:pointer;transition:.2s;text-align:center;
+        font-family:inherit;color:#fff}
+  .card:hover{transform:translateY(-4px);border-color:#4ade80;background:rgba(74,222,128,.12)}
+  .card img{width:120px;height:165px;object-fit:contain;object-position:bottom;
+            filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));margin-bottom:10px}
+  .card h3{font-size:21px;margin-bottom:8px}.card p{font-size:14px;line-height:1.45;opacity:.85;text-align:left}
+  #result{position:absolute;inset:0;display:none;place-items:center;z-index:12;
+          background:rgba(8,12,16,.93);text-align:center;padding:20px}
+  #result h2{font-size:clamp(26px,5vw,46px);margin-bottom:10px}
+  #result p{font-size:18px;margin-bottom:8px}
+  #restart{padding:12px 26px;font-size:17px;border-radius:10px;border:0;cursor:pointer;
+           background:#4ade80;color:#062;font-family:inherit;margin-top:14px}
+  #loadbar{position:fixed;top:8px;left:8px;z-index:99;display:flex;gap:6px}
+  #loadbar button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid #555;
+        background:#1b222c;color:#fff;cursor:pointer;font-family:inherit}
+  #warn{position:fixed;bottom:8px;left:8px;z-index:99;max-width:70vw;font-size:13px;
+        background:rgba(180,30,30,.92);color:#fff;padding:9px 13px;border-radius:8px;display:none}
+</style>
+</head>
+<body>
+<div id="loadbar">
+  <input type="file" id="picker" accept="image/*" multiple hidden>
+  <button onclick="document.getElementById('picker').click()">Загрузить картинки</button>
+</div>
+<div id="warn"></div>
+
+<div id="game">
+  <img id="bg" src="bg.png?v=6" alt="">
+  <div id="veil"></div>
+  <div id="score">Очки: <span id="sc">0</span></div>
+  <img id="char" src="" alt="">
+  <div id="who"></div>
+
+  <div id="board">
+    <div id="head">ВОПРОС 1 ИЗ 10</div>
+    <div id="qText"></div>
+    <div id="opts"></div>
+    <button id="next">Далее</button>
+  </div>
+
+  <div id="bubble"></div>
+
+  <div id="select">
+    <div>
+      <h1>Выбери персонажа</h1>
+      <div class="sub">Он будет в кадре всю игру и изредка комментировать твои ответы</div>
+      <div class="cards">
+        <button class="card" data-ch="male">
+          <img src="char_m.png?v=6" alt="Парень">
+          <h3>Парень</h3>
+          <p>Спокойный, немного отстранённый. Всегда собран, одет с иголочки, но без вызова.
+             С незнакомыми держит дистанцию, но если разговорить — вполне нормальный.
+             Учится хорошо, но не ради оценок, а потому что не любит халтуру.</p>
+        </button>
+        <button class="card" data-ch="female">
+          <img src="char_f.png?v=6" alt="Девушка">
+          <h3>Девушка</h3>
+          <p>Уверенная в себе, общительная. С первого взгляда — та самая «правильная» отличница.
+             Может спокойно ответить учителю, если считает его неправым.
+             С ней легко найти общий язык. Улыбается часто, но не фальшиво.</p>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="result">
+    <div>
+      <h2 id="resTitle"></h2>
+      <p id="resText"></p>
+      <p id="resChar"></p>
+      <button id="restart">Играть снова</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUESTIONS = [
+ {q:"Как называется ситуация, когда изменения вносятся в одну запись, а в связанную с ней — нет, что приводит к противоречиям в базе данных?",
+  o:["Множественное обновление","Противоречивость (нарушение целостности)","Избыточность данных"], a:1,
+  ok:"Верно, это противоречивость — нарушение целостности.", no:"Нет, это называется противоречивость."},
+ {q:"Какой метод используется для устранения избыточности и предотвращения противоречий при внесении изменений в связанные записи?",
+  o:["Централизованное хранение","Множественное обновление","Резервное копирование"], a:1,
+  ok:"Именно — множественное обновление.", no:"Копирование — это про безопасность, а не про дубли."},
+ {q:"Что обеспечивает «возможность общего доступа к данным» при наличии централизованной БД?",
+  o:["Сотрудники могут совместно использовать данные в соответствии со своими полномочиями",
+     "Все сотрудники получают неограниченный доступ ко всем данным",
+     "Данные становятся доступны только администратору БД"], a:0,
+  ok:"Да, доступ разграничен по правам.", no:"Нет, у всех без разбора — это не про безопасность."},
+ {q:"Что проще осуществить при централизованной системе баз данных в рамках «возможности соблюдения стандартов»?",o:["Внедрение единых стандартов по обработке данных",
+     "Создание локальных стандартов для каждого подразделения",
+     "Отказ от использования стандартов"], a:0,
+  ok:"Верно — единые стандарты для всех.", no:"Нет, разброс стандартов — это как раз минус."},
+ {q:"Что проще разработать и внедрить при централизованном хранении для обеспечения безопасности данных?",
+  o:["Правила шифрования","Правила разграничения доступа к ним","Правила удаления данных"], a:1,
+  ok:"Точно, разграничение доступа.", no:"Нет, шифрование защищает от подглядывания, а не от чужих прав."},
+ {q:"В чем заключается задача обеспечения целостности данных в БД?",
+  o:["В обеспечении правильности и точности данных",
+     "В обеспечении максимального объема данных",
+     "В обеспечении скорости обработки данных"], a:0,
+  ok:"Да, правильность и точность.", no:"Нет, объём и скорость — это про другое."},
+ {q:"Что проще организовать при централизованном хранении данных для защиты от сбоев?",
+  o:["Процедуры шифрования","Процедуры сжатия данных",
+     "Процедуры резервного копирования и восстановления БД"], a:2,
+  ok:"Резервное копирование — верно.", no:"Нет, это помогает именно при восстановлении после сбоя."},
+ {q:"К чему может привести неудачное проектирование и внедрение системы БД на предприятии?",
+  o:["К незначительным временным неудобствам",
+     "К катастрофическим последствиям, так как вся работа информационной системы зависит от БД",
+     "К повышению эффективности работы предприятия"], a:1,
+  ok:"Да, полетит вся информационная система.", no:"Нет, последствия тут куда серьёзнее."},
+ {q:"Согласно контрольным вопросам, в чем отличие базы данных от обычных файлов с данными?",
+  o:["База данных не требует использования программного обеспечения",
+     "База данных всегда имеет меньший размер",
+     "База данных предполагает организованное хранение, управление и совместный доступ, а не просто набор файлов"], a:2,
+  ok:"Верно — организованное хранение, управление и совместный доступ.", no:"Нет, дело именно в организации и совместном доступе."},
+ {q:"Что, согласно тексту, относится к преимуществам централизованного подхода к управлению данными?",
+  o:["Только возможность общего доступа",
+     "Возможность соблюдения стандартов, обеспечения безопасности и целостности данных",
+     "Только сокращение расходов на оборудование"], a:1,
+  ok:"Верно: и стандарты, и безопасность, и целостность.", no:"Нет, это не единственный плюс."}
+];
+const IDLE={
+ male:["Погоди, это несложно.","Смотри на суть, а не на формулировку.","У тебя неплохо получается.",
+      "Не спеши, подумай.","Так, давай разберёмся.","Дальше пойдёт проще."],
+ female:["Ну что, справимся?","Тут главное — не путать понятия.","Ты справишься, я уверена.",
+         "Смотри, тут всё логично.","Давай, я подсказываю.","Хороший вопрос, кстати."]
+};
+const NAME={male:"Парень",female:"Девушка"};
+const FILES={male:"char_m.png",female:"char_f.png"};
+let idx=0,score=0,chosen='male',answered=false,bubbleT=null,manual={};
+const $=id=>document.getElementById(id);
+function warn(t){const w=$('warn');w.textContent=t;w.style.display='block';}
+function say(text,ms=3600){
+  const b=$('bubble');
+  b.textContent=text||'';
+  void b.offsetWidth;
+  b.classList.add('show');
+  clearTimeout(bubbleT);
+  if(ms) bubbleT=setTimeout(()=>b.classList.remove('show'),ms);
+}
+function hideBubble(){clearTimeout(bubbleT);$('bubble').classList.remove('show');}
+function setChar(kind){
+  const ch=$('char');
+  ch.removeAttribute('class');
+  const src=manual[kind]||FILES[kind];
+  ch.src=src;
+  ch.onload=()=>{
+    try{
+      const c=document.createElement('canvas'),w=ch.naturalWidth,h=ch.naturalHeight;
+      if(!w||!h) return;
+      c.width=w;c.height=h;
+      const x=c.getContext('2d'); x.drawImage(ch,0,0);
+      const d=x.getImageData(0,0,w,h),px=d.data;
+      const dark=k=>px[k]<42&&px[k+1]<42&&px[k+2]<42;
+      const seen=new Uint8Array(w*h),st=[];
+      const push=(i,j)=>{if(i<0||j<0||i>=w||j>=h)return;const k=j*w+i;if(seen[k])return;seen[k]=1;if(dark(k*4))st.push([i,j]);};
+      for(let i=0;i<w;i++){push(i,0);push(i,h-1);}
+      for(let j=0;j<h;j++){push(0,j);push(w-1,j);}
+      while(st.length){const [i,j]=st.pop(),k=j*w+i;px[k*4+3]=0;
+        push(i+1,j);push(i-1,j);push(i,j+1);push(i,j-1);}
+      x.putImageData(d,0,0);
+      ch.src=c.toDataURL('image/png');
+    }catch(e){}
+  };
+  ch.onerror=()=>warn('Не найдена картинка: '+(manual[kind]?'выбранный файл':FILES[kind]));
+  $('who').textContent=NAME[kind];
+}
+document.querySelectorAll('.card').forEach(card=>card.onclick=()=>{
+  chosen=card.dataset.ch;
+  $('select').style.display='none';
+  setChar(chosen);
+  $('char').classList.add('pop');
+  start();
+});
+function start(){
+  idx=0;score=0;$('sc').textContent=0;
+  $('result').style.display='none';$('board').style.display='';
+  render();
+  setTimeout(()=>say('Поехали.',2600),800);
+}
+function render(){
+  answered=false;
+  const q=QUESTIONS[idx];
+  $('head').textContent=`ВОПРОС ${idx+1} ИЗ ${QUESTIONS.length}`;
+  $('qText').textContent=q.q;
+  $('opts').innerHTML='';
+  q.o.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.className='opt'; b.textContent=(i+1)+'. '+t;
+    b.onclick=()=>pick(i,b);
+    $('opts').appendChild(b);
+  });
+  $('next').disabled=true;
+  $('next').textContent=idx===QUESTIONS.length-1?'Завершить':'Далее';
+  const ch=$('char'); ch.classList.remove('pop'); void ch.offsetWidth; ch.classList.add('pop');
+  hideBubble();
+}
+function pick(i,btn){
+  if(answered) return; answered=true;
+  const q=QUESTIONS[idx];
+  const btns=[...document.querySelectorAll('.opt')];
+  btns.forEach(b=>b.disabled=true);
+  const right=(i===q.a);
+  if(right){ btn.classList.add('correct'); score++; }
+  else{ btn.classList.add('wrong'); btns[q.a].classList.add('correct'); }
+  $('sc').textContent=score;
+  say(right?q.ok:q.no,3800);
+  $('next').disabled=false;
+}
+$('next').onclick=()=>{
+  idx++;
+  if(idx<QUESTIONS.length){
+    render();
+    if(Math.random()<0.55){
+      const l=IDLE[chosen];
+      setTimeout(()=>say(l[Math.floor(Math.random()*l.length)],2800),1100);
+    }
+  } else finish();
+};
+function finish(){
+  hideBubble();
+  $('board').style.display='none';
+  $('result').style.display='grid';
+  const v=score>=9?'Безупречно!':score>=7?'Отличный результат!':
+          score>=5?'Неплохо, но есть куда расти':'Стоит повторить материал';
+  $('resTitle').textContent=`${score} из ${QUESTIONS.length}`;
+  $('resText').textContent=v;
+  $('resChar').textContent=`${NAME[chosen]} — ${chosen==='male'
+    ? 'Ну, для человека со спокойным характером — очень даже достойно.'
+    : 'Вот это уверенный результат. Преподаватель оценит.'}`;
+}
+$('restart').onclick=()=>{$('result').style.display='none';$('board').style.display='';start();};
+document.addEventListener('keydown',e=>{
+  const b=[...document.querySelectorAll('.opt')];
+  if(['1','2','3'].includes(e.key)&&b[+e.key-1]) b[+e.key-1].click();
+  if(e.key==='Enter'&&!$('next').disabled) $('next').click();
+});
+document.getElementById('picker').onchange=e=>{
+  const files=[...e.target.files].filter(f=>f.type.startsWith('image'));
+  const by=re=>files.find(f=>re.test(f.name));
+  const bgF=by(/bg|фон|klass|fon/i);
+  const fF=by(/char_f|жен|дев|girl|female|_f\./i);
+  const mF=by(/char_m|муж|par|boy|male|_m\./i);
+  if(bgF) $('bg').src=URL.createObjectURL(bgF);
+  if(fF){ manual.female=URL.createObjectURL(fF);
+    document.querySelector('.card[data-ch="female"] img').src=manual.female; }
+  if(mF){ manual.male=URL.createObjectURL(mF);
+    document.querySelector('.card[data-ch="male"] img').src=manual.male; }
+  if(chosen) setChar(chosen);
+};
+</script>
+</body>
+</html>
